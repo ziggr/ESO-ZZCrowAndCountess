@@ -92,7 +92,7 @@ function ZZCrowAndCountess.TooltipInsertOurText(control, item_link)
     for i = 1,tag_ct do
         local tag_desc, tag_category = GetItemLinkItemTagInfo(item_link,i)
         if TAG_CATEGORY_TREASURE_TYPE == tag_category then
-            d(tag_desc)
+            -- d(tag_desc)
             local cc = TAG_WANTED[tag_desc]
             if not cc then
                 d("Unknown tag: "..tostring(tag_desc))
