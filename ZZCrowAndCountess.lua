@@ -52,8 +52,18 @@ function ZZCrowAndCountess.TooltipInsertOurText(control, item_link)
         return
     end
 
+                        -- Find treasure type
+    local tag_ct = GetItemLinkNumItemTags(item_link)
+    for i = 1,tag_ct do
+        local tag_desc, tag_category = GetItemLinkItemTagInfo(item_link,i)
+        if TAG_CATEGORY_TREASURE_TYPE == tag_category then
+            d(tag_desc)
+        end
+    end
+
     control:AddLine("Hiya!")
 end
+
 
 -- Postamble -----------------------------------------------------------------
 
