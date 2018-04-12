@@ -10,9 +10,9 @@ local CROW_LEISURE  = "Leisure"  -- Games, Toys. Dolls?
 local CROW_GLITTER  = "Glitter"  -- ornate armor
 local CROW_MORSELS  = "Morsels"  -- Elemental Essence, Supple Root, Ectoplasm
 local CROW_NIBBLES  = "Nibbles"  -- Carapace, Foul Hide, Daedra Husk
-local COUNTESS_WINDHELM     = "Windhelm"
-local COUNTESS_RIFTEN       = "Riften"
-local COUNTESS_DAVONS_WATCH = "Davon's Watch"
+local COUNTESS_WINDHELM     = "Windhelm"      -- 1
+local COUNTESS_RIFTEN       = "Riften"        -- 12345
+local COUNTESS_DAVONS_WATCH = "Davon's Watch" -- 1
 local COUNTESS_STORMHOLD    = "Stormhold"
 local COUNTESS_MOURNHOLD    = "Mournhold"
 
@@ -23,7 +23,7 @@ local TAG_WANTED = {
 , ["Dishes and Cookware"    ] = { CROW_RESPECT , COUNTESS_RIFTEN       } -- respect, riften
 , ["Dolls"                  ] = { nil          , COUNTESS_DAVONS_WATCH }
 , ["Drinkware"              ] = { CROW_RESPECT , COUNTESS_RIFTEN       } -- respect, riften
-, ["Dry Goods"              ] = { nil          , nil                   } -- nil
+, ["Dry Goods"              ] = { nil          , COUNTESS_WINDHELM     } -- windhelm
 , ["Fishing Supplies"       ] = { nil          , nil                   } -- nil
 , ["Furnishings"            ] = { nil          , nil                   } -- nil
 , ["Games"                  ] = { CROW_LEISURE , COUNTESS_DAVONS_WATCH } -- leisure, davon's
@@ -40,7 +40,7 @@ local TAG_WANTED = {
 , ["Smithing Equipment"     ] = { nil          , nil                   } -- nil
 , ["Statues"                ] = { nil          , COUNTESS_DAVONS_WATCH } -- davon's
 , ["Tools"                  ] = { nil          , nil                   } -- nil
-, ["Toys"                   ] = { CROW_LEISURE , nil                   } --
+, ["Toys"                   ] = { CROW_LEISURE , nil                   }
 , ["Trifles and Ornaments"  ] = { nil          , nil                   } -- nil
 , ["Utensils"               ] = { CROW_RESPECT , COUNTESS_RIFTEN       } -- respect, riften
 , ["Wall Décor"             ] = { nil          , nil                   } -- nil
@@ -83,22 +83,28 @@ end
 -- Look for crow and countess quests
 function ZZCrowAndCountess.ScanQuestJournal()
                         -- Start blank unless we see a crow or countess quest.
+    local old = { countess == ZZCrowAndCountess.curr_quest_countess
+                , crow     == ZZCrowAndCountess.curr_quest_crow
+                }
     ZZCrowAndCountess.curr_quest_countess = nil
     ZZCrowAndCountess.curr_quest_crow     = nil
 
     local crow     = nil -- CROW_TRIBUTES
     local countess = nil -- COUNTESS_RIFTEN
-
     for quest_index = 1, MAX_JOURNAL_QUESTS do
         local r = ZZCrowAndCountess.ScanQuest(quest_index)
         if r and r.countess then
             ZZCrowAndCountess.curr_quest_countess = r.countess
-            -- d("Learned countess="..tostring(ZZCrowAndCountess.curr_quest_countess))
         end
         if r and r.crow then
             ZZCrowAndCountess.curr_quest_crow = r.crow
-            -- d("Learned crow="..tostring(ZZCrowAndCountess.curr_quest_crow))
         end
+    end
+    if ZZCrowAndCountess.curr_quest_countess ~= old.countess then
+        d("ZZCrowAndCountess countess: "..tostring(ZZCrowAndCountess.curr_quest_countess))
+    end
+    if ZZCrowAndCountess.curr_quest_crow ~= old.crow then
+        d("ZZCrowAndCountess crow: "..tostring(ZZCrowAndCountess.curr_quest_crow))
     end
 end
 
