@@ -17,35 +17,35 @@ local COUNTESS_STORMHOLD    = "Stormhold"
 local COUNTESS_MOURNHOLD    = "Mournhold"
 
 local TAG_WANTED = {
-  ["Artwork"                ] = { nil          , nil                   }
-, ["Cosmetics"              ] = { CROW_TRIBUTES, COUNTESS_WINDHELM     }
-, ["Devices"                ] = { nil          , nil                   }
-, ["Dishes and Cookware"    ] = { CROW_RESPECT , COUNTESS_RIFTEN       }
+  ["Artwork"                ] = { nil          , nil                   } -- nil
+, ["Cosmetics"              ] = { CROW_TRIBUTES, COUNTESS_WINDHELM     } -- tributes
+, ["Devices"                ] = { nil          , nil                   } -- nil
+, ["Dishes and Cookware"    ] = { CROW_RESPECT , COUNTESS_RIFTEN       } -- respect, riften
 , ["Dolls"                  ] = { nil          , COUNTESS_DAVONS_WATCH }
-, ["Drinkware"              ] = { CROW_RESPECT , COUNTESS_RIFTEN       }
-, ["Dry Goods"              ] = { nil          , nil                   }
-, ["Fishing Supplies"       ] = { nil          , nil                   }
-, ["Furnishings"            ] = { nil          , nil                   }
-, ["Games"                  ] = { CROW_LEISURE , COUNTESS_DAVONS_WATCH }
-, ["Grooming Items"         ] = { CROW_TRIBUTES, nil                   }
-, ["Lights"                 ] = { nil          , nil                   }
+, ["Drinkware"              ] = { CROW_RESPECT , COUNTESS_RIFTEN       } -- respect, riften
+, ["Dry Goods"              ] = { nil          , nil                   } -- nil
+, ["Fishing Supplies"       ] = { nil          , nil                   } -- nil
+, ["Furnishings"            ] = { nil          , nil                   } -- nil
+, ["Games"                  ] = { CROW_LEISURE , COUNTESS_DAVONS_WATCH } -- leisure, davon's
+, ["Grooming Items"         ] = { CROW_TRIBUTES, nil                   } -- tributes
+, ["Lights"                 ] = { nil          , nil                   } -- nil
 , ["Linens"                 ] = { nil          , COUNTESS_WINDHELM     }
-, ["Magic Curiosities"      ] = { nil          , nil                   }
-, ["Maps"                   ] = { nil          , COUNTESS_STORMHOLD    }
-, ["Medical Supplies"       ] = { nil          , nil                   }
-, ["Musical Instruments"    ] = { nil          , nil                   }
-, ["Oddities"               ] = { nil          , COUNTESS_MORNHOLD     }
-, ["Ritual Objects"         ] = { nil          , COUNTESS_MORNHOLD     }
-, ["Scrivener Supplies"     ] = { nil          , COUNTESS_STORMHOLD    }
-, ["Smithing Equipment"     ] = { nil          , nil                   }
-, ["Statues"                ] = { nil          , COUNTESS_DAVONS_WATCH }
-, ["Tools"                  ] = { nil          , nil                   }
-, ["Toys"                   ] = { CROW_LEISURE , nil                   }
-, ["Trifles and Ornaments"  ] = { nil          , nil                   }
-, ["Utensils"               ] = { CROW_RESPECT , COUNTESS_RIFTEN       }
-, ["Wall Décor"             ] = { nil          , nil                   }
-, ["Wardrobe Accessories"   ] = { nil          , COUNTESS_WINDHELM     }
-, ["Writings"               ] = { nil          , COUNTESS_STORMHOLD    }
+, ["Magic Curiosities"      ] = { nil          , nil                   } -- nil
+, ["Maps"                   ] = { nil          , COUNTESS_STORMHOLD    } -- stormhold
+, ["Medical Supplies"       ] = { nil          , nil                   } -- nil
+, ["Musical Instruments"    ] = { nil          , nil                   } -- nil
+, ["Oddities"               ] = { nil          , COUNTESS_MOURNHOLD    } -- mournhold
+, ["Ritual Objects"         ] = { nil          , COUNTESS_MOURNHOLD    } -- mournhold
+, ["Scrivener Supplies"     ] = { nil          , COUNTESS_STORMHOLD    } -- stormhold
+, ["Smithing Equipment"     ] = { nil          , nil                   } -- nil
+, ["Statues"                ] = { nil          , COUNTESS_DAVONS_WATCH } -- davon's
+, ["Tools"                  ] = { nil          , nil                   } -- nil
+, ["Toys"                   ] = { CROW_LEISURE , nil                   } --
+, ["Trifles and Ornaments"  ] = { nil          , nil                   } -- nil
+, ["Utensils"               ] = { CROW_RESPECT , COUNTESS_RIFTEN       } -- respect, riften
+, ["Wall Décor"             ] = { nil          , nil                   } -- nil
+, ["Wardrobe Accessories"   ] = { nil          , COUNTESS_WINDHELM     } -- windhelm
+, ["Writings"               ] = { nil          , COUNTESS_STORMHOLD    } -- stormhold
 }
 local ITEM_ID_WANTED = {
   [54385] = CROW_MORSELS -- Elemental Essence
@@ -257,6 +257,8 @@ function ZZCrowAndCountess.ItemLinkToCrowAndCountess(item_link)
             end
         end
     end
+    r.crow_list     = ZZCrowAndCountess.StripDuplicates(r.crow_list    )
+    r.countess_list = ZZCrowAndCountess.StripDuplicates(r.countess_list)
     return r
 end
 
@@ -275,6 +277,23 @@ function ZZCrowAndCountess.IsCurrent(crow_or_countess_list)
        end
    end
    return false
+end
+
+function ZZCrowAndCountess.StripDuplicates(list)
+    local set = {}
+    local dupe_seen = false
+    for _,v in ipairs(list) do
+        set[v] = 1 + (set[v] or 0)
+        if 2 <= set[v] then
+            dupe_seen = true
+        end
+    end
+    if not dupe_seen then return list end
+    local new_list = {}
+    for k,_ in pairs(set) do
+        table.insert(new_list, k)
+    end
+    return new_list
 end
 
 local COLOR_NEED_CURRENT  = "|c66FF66"
