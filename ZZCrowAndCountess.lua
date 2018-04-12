@@ -4,93 +4,6 @@ ZZCrowAndCountess.version               = "3.3.1"
 ZZCrowAndCountess.curr_quest_crow       = nil
 ZZCrowAndCountess.curr_quest_countess   = nil
 
--- Init ----------------------------------------------------------------------
-
-function ZZCrowAndCountess.OnAddOnLoaded(event, addonName)
-    if addonName ~= ZZCrowAndCountess.name then return end
-    if not ZZCrowAndCountess.version then return end
-    ZZCrowAndCountess.TooltipInterceptInstall()
-
-    local event_id_list = { EVENT_QUEST_ADDED       -- 0 needs acquire -> 1 or 2
-                          , EVENT_CRAFT_COMPLETED   -- 1 needs craft   -> 2
-                          , EVENT_QUEST_COMPLETE    -- 2 needs turn in -> 3
-                          }
-    for _, event_id in ipairs(event_id_list) do
-        EVENT_MANAGER:RegisterForEvent( ZZCrowAndCountess.name
-                                      , event_id
-                                      , function()
-                                            ZZCrowAndCountess.ScanQuestJournal()
-                                        end
-                                      )
-    end
-    ZZCrowAndCountess.ScanQuestJournal()
-end
-
--- Quest Scan ----------------------------------------------------------------
--- Look for crow and countess quests
-function ZZCrowAndCountess.ScanQuestJournal()
-    local crow     = nil -- CROW_TRIBUTES
-    local countess = nil -- COUNTESS_RIFTEN
-
-    for quest_index = 1, MAX_JOURNAL_QUESTS do
-        local qinfo = { GetJournalQuestInfo(quest_index) }
-        -- qinfo[1] quest name
-        -- qinfo[2] background text
-        -- qinfo[3] active step text
-
-        local step_ct = GetJournalQuestNumSteps(quest_index)
-        for step_index = 1, step_ct do
-            local sinfo = { GetJournalQuestStepInfo(quest_index, step_index) }
-            -- sinfo[1] step text
-            -- sinfo[5] condition count
-            local condition_ct = sinfo[5]
-            for condition_index = 1, condition_ct do
-                local cinfo = { GetJournalQuestConditionInfo(quest_index
-                                            , step_index, condition_index) }
-                -- cinfo[1] condition text
-
-                -- if match...
-                -- ### FAKEY CODE
-                ZZCrowAndCountess.curr_quest_crow     = CROW_TRIBUTES
-                ZZCrowAndCountess.curr_quest_countess = COUNTESS_RIFTEN
-            end
-        end
-    end
-end
-
--- Tooltip Intercept ---------------------------------------------------------
-
--- Monkey-patch ZOS' ItemTooltip with our own after-overrides. Lets ZOS code
--- create and show the original tooltip, and then we come in and insert our
--- own stuff.
---
--- Based on CraftStore's CS.TooltipHandler().
---
-function ZZCrowAndCountess.TooltipInterceptInstall()
-    local tt=ItemTooltip.SetBagItem
-    ItemTooltip.SetBagItem=function(control,bagId,slotIndex,...)
-        tt(control,bagId,slotIndex,...)
-        ZZCrowAndCountess.TooltipInsertOurText(control,GetItemLink(bagId,slotIndex))
-    end
-    local tt=ItemTooltip.SetLootItem
-    ItemTooltip.SetLootItem=function(control,lootId,...)
-        tt(control,lootId,...)
-        ZZCrowAndCountess.TooltipInsertOurText(control,GetLootItemLink(lootId))
-    end
-    local tt=PopupTooltip.SetLink
-    PopupTooltip.SetLink=function(control,link,...)
-        tt(control,link,...)
-        ZZCrowAndCountess.TooltipInsertOurText(control,link)
-    end
-    local tt=ItemTooltip.SetTradingHouseItem
-    ItemTooltip.SetTradingHouseItem=function(control,tradingHouseIndex,...)
-        tt(control,tradingHouseIndex,...)
-        local _,_,_,_,_,_,purchase_gold = GetTradingHouseSearchResultItemInfo(tradingHouseIndex)
-        ZZCrowAndCountess.TooltipInsertOurText(control
-                , GetTradingHouseSearchResultItemLink(tradingHouseIndex))
-    end
-end
-
 local CROW_TRIBUTES = "Tributes" -- Cosmetics, Grooming Items
 local CROW_RESPECT  = "Respect"  -- Dishes and Cookware?, Drinkware, Utensils
 local CROW_LEISURE  = "Leisure"  -- Games, Toys. Dolls?
@@ -143,6 +56,154 @@ local ITEM_ID_WANTED = {
 , [54383] = CROW_NIBBLES -- Daedra Husk
 }
 
+-- Init ----------------------------------------------------------------------
+
+function ZZCrowAndCountess.OnAddOnLoaded(event, addonName)
+    if addonName ~= ZZCrowAndCountess.name then return end
+    if not ZZCrowAndCountess.version then return end
+    ZZCrowAndCountess.TooltipInterceptInstall()
+
+    local event_id_list = { EVENT_QUEST_ADDED       -- 0 needs acquire -> 1 or 2
+                          , EVENT_CRAFT_COMPLETED   -- 1 needs craft   -> 2
+                          , EVENT_QUEST_COMPLETE    -- 2 needs turn in -> 3
+                          }
+    for _, event_id in ipairs(event_id_list) do
+        EVENT_MANAGER:RegisterForEvent( ZZCrowAndCountess.name
+                                      , event_id
+                                      , function()
+                                            ZZCrowAndCountess.ScanQuestJournal()
+                                        end
+                                      )
+    end
+    ZZCrowAndCountess.ScanQuestJournal()
+end
+
+
+-- Quest Scan ----------------------------------------------------------------
+-- Look for crow and countess quests
+function ZZCrowAndCountess.ScanQuestJournal()
+    local crow     = nil -- CROW_TRIBUTES
+    local countess = nil -- COUNTESS_RIFTEN
+
+    for quest_index = 1, MAX_JOURNAL_QUESTS do
+        local r = ZZCrowAndCountess.ScanQuest(quest_index)
+        if r and r.countess then
+            ZZCrowAndCountess.curr_quest_countess = r.countess
+            d("Learned countess="..tostring(ZZCrowAndCountess.curr_quest_countess))
+        end
+        if r and r.crow then
+            ZZCrowAndCountess.curr_quest_crow = r.crow
+            d("Learned crow="..tostring(ZZCrowAndCountess.curr_quest_crow))
+        end
+    end
+end
+
+
+COUNTESS_BGTEXT = {
+  [COUNTESS_WINDHELM    ] = { "cosmetics", "windhelm" }
+, [COUNTESS_RIFTEN      ] = { "XXX" }
+, [COUNTESS_DAVONS_WATCH] = { "XXX" }
+, [COUNTESS_STORMHOLD   ] = { "XXX" }
+, [COUNTESS_MOURNHOLD   ] = { "XXX" }
+}
+function ZZCrowAndCountess.ScanQuest(quest_index)
+    local qinfo = { GetJournalQuestInfo(quest_index) }
+    local r     = { crow = nil, countess = nil }
+    if not (qinfo[2] and qinfo[2] ~= "") then return end
+
+    -- qinfo[1] quest name
+    -- qinfo[2] background text
+    -- qinfo[3] active step text
+    d("name: "..tostring(qinfo[1]))
+    d("bg text: "..tostring(qinfo[2]))
+    d("active step: "..tostring(qinfo[3]))
+
+    local quest_name = qinfo[1]
+    if (quest_name == "The Covetous Countess") then
+        local all_text_list = ZZCrowAndCountess.AllQuestText(quest_index)
+        local all_text = table.concat(all_text_list, "\n"):lower()
+        d("all_text:"..all_text)
+        for countess, re_list in pairs(COUNTESS_BGTEXT) do
+            for _,re in ipairs(re_list) do
+                if string.match(all_text, re:lower()) then
+                    d("current countess:"..countess)
+                    r.countess = countess
+                    return r
+                else
+                    d("re nomatch: "..re)
+                end
+            end
+        end
+    else
+        d("Quest name not covetous:'"..tostring(quest_name).."'")
+    end
+
+    return r
+end
+
+            -- -- if match...
+            -- -- ### FAKEY CODE
+            -- ZZCrowAndCountess.curr_quest_crow     = CROW_TRIBUTES
+            -- ZZCrowAndCountess.curr_quest_countess = COUNTESS_RIFTEN
+
+
+function ZZCrowAndCountess.AllQuestText(quest_index)
+    local all_text = {}
+    local qinfo = { GetJournalQuestInfo(quest_index) }
+    table.insert(all_text, tostring(qinfo[1]))
+    table.insert(all_text, tostring(qinfo[2]))
+    table.insert(all_text, tostring(qinfo[3]))
+    local step_ct = GetJournalQuestNumSteps(quest_index)
+    for step_index = 1, step_ct do
+        local sinfo = { GetJournalQuestStepInfo(quest_index, step_index) }
+        -- sinfo[1] step text
+        -- sinfo[5] condition count
+        table.insert(all_text, tostring(sinfo[1]))
+
+        local condition_ct = sinfo[5]
+        for condition_index = 1, condition_ct do
+            local cinfo = { GetJournalQuestConditionInfo(quest_index
+                                        , step_index, condition_index) }
+            -- cinfo[1] condition text
+            table.insert(all_text, tostring(cinfo[1]))
+        end
+    end
+    return all_text
+end
+
+-- Tooltip Intercept ---------------------------------------------------------
+
+-- Monkey-patch ZOS' ItemTooltip with our own after-overrides. Lets ZOS code
+-- create and show the original tooltip, and then we come in and insert our
+-- own stuff.
+--
+-- Based on CraftStore's CS.TooltipHandler().
+--
+function ZZCrowAndCountess.TooltipInterceptInstall()
+    local tt=ItemTooltip.SetBagItem
+    ItemTooltip.SetBagItem=function(control,bagId,slotIndex,...)
+        tt(control,bagId,slotIndex,...)
+        ZZCrowAndCountess.TooltipInsertOurText(control,GetItemLink(bagId,slotIndex))
+    end
+    local tt=ItemTooltip.SetLootItem
+    ItemTooltip.SetLootItem=function(control,lootId,...)
+        tt(control,lootId,...)
+        ZZCrowAndCountess.TooltipInsertOurText(control,GetLootItemLink(lootId))
+    end
+    local tt=PopupTooltip.SetLink
+    PopupTooltip.SetLink=function(control,link,...)
+        tt(control,link,...)
+        ZZCrowAndCountess.TooltipInsertOurText(control,link)
+    end
+    local tt=ItemTooltip.SetTradingHouseItem
+    ItemTooltip.SetTradingHouseItem=function(control,tradingHouseIndex,...)
+        tt(control,tradingHouseIndex,...)
+        local _,_,_,_,_,_,purchase_gold = GetTradingHouseSearchResultItemInfo(tradingHouseIndex)
+        ZZCrowAndCountess.TooltipInsertOurText(control
+                , GetTradingHouseSearchResultItemLink(tradingHouseIndex))
+    end
+end
+
 -- Copied from Dolgubon's LibLazyCrafting
 function ItemLinkToItemId(item_link)
     return tonumber(string.match(item_link,"|H%d:item:(%d+)"))
@@ -193,11 +254,19 @@ function ZZCrowAndCountess.ItemLinkToCrowAndCountess(item_link)
 end
 
 function ZZCrowAndCountess.IsCurrent(crow_or_countess_list)
-    if not crow_or_countess_quest then return false end
-    for _,c in ipairs(crow_or_countess_quest) do
-        if    crow_or_countess_quest == ZZCrowAndCountess.curr_quest_crow
-           or crow_or_countess_quest == ZZCrowAndCountess.curr_quest_countess then
+    d("curr crow    : "..tostring(ZZCrowAndCountess.curr_quest_crow))
+    d("curr countess: "..tostring(ZZCrowAndCountess.curr_quest_countess))
+    if not crow_or_countess_list then
+        d("no")
+        return false
+    end
+    for _,c in ipairs(crow_or_countess_list) do
+        if    c == ZZCrowAndCountess.curr_quest_crow
+           or c == ZZCrowAndCountess.curr_quest_countess then
+           d("curr true: "..tostring(c))
            return true
+       else
+            d("curr false: "..tostring(c))
        end
    end
    return false
@@ -213,7 +282,7 @@ function ZZCrowAndCountess.TooltipInsertOurText(control, item_link)
     if 0 < #r.crow_list then
         local color = COLOR_NEED_SOMEDAY
         if ZZCrowAndCountess.IsCurrent(r.crow_list) then
-            color = COLOR_NEED_CURRRENT
+            color = COLOR_NEED_CURRENT
         end
         local s = color.."Crow: "..table.concat(r.crow_list, ", ").."|r"
         control:AddLine(s)
@@ -221,7 +290,7 @@ function ZZCrowAndCountess.TooltipInsertOurText(control, item_link)
     if 0 < #r.countess_list then
         local color = COLOR_NEED_SOMEDAY
         if ZZCrowAndCountess.IsCurrent(r.countess_list) then
-            color = COLOR_NEED_CURRRENT
+            color = COLOR_NEED_CURRENT
         end
         local s = color.."Countess: "..table.concat(r.countess_list, ", ").."|r"
         control:AddLine(s)
@@ -239,3 +308,5 @@ EVENT_MANAGER:RegisterForEvent( ZZCrowAndCountess.name
                               , EVENT_ADD_ON_LOADED
                               , ZZCrowAndCountess.OnAddOnLoaded
                               )
+
+SLASH_COMMANDS["/zzcrow"] = ZZCrowAndCountess.ScanQuestJournal
