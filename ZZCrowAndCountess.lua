@@ -82,6 +82,10 @@ end
 -- Quest Scan ----------------------------------------------------------------
 -- Look for crow and countess quests
 function ZZCrowAndCountess.ScanQuestJournal()
+                        -- Start blank unless we see a crow or countess quest.
+    ZZCrowAndCountess.curr_quest_countess = nil
+    ZZCrowAndCountess.curr_quest_crow     = nil
+
     local crow     = nil -- CROW_TRIBUTES
     local countess = nil -- COUNTESS_RIFTEN
 
@@ -89,22 +93,31 @@ function ZZCrowAndCountess.ScanQuestJournal()
         local r = ZZCrowAndCountess.ScanQuest(quest_index)
         if r and r.countess then
             ZZCrowAndCountess.curr_quest_countess = r.countess
-            d("Learned countess="..tostring(ZZCrowAndCountess.curr_quest_countess))
+            -- d("Learned countess="..tostring(ZZCrowAndCountess.curr_quest_countess))
         end
         if r and r.crow then
             ZZCrowAndCountess.curr_quest_crow = r.crow
-            d("Learned crow="..tostring(ZZCrowAndCountess.curr_quest_crow))
+            -- d("Learned crow="..tostring(ZZCrowAndCountess.curr_quest_crow))
         end
     end
 end
 
 
 COUNTESS_BGTEXT = {
-  [COUNTESS_WINDHELM    ] = { "cosmetics", "windhelm" }
-, [COUNTESS_RIFTEN      ] = { "XXX" }
-, [COUNTESS_DAVONS_WATCH] = { "XXX" }
-, [COUNTESS_STORMHOLD   ] = { "XXX" }
-, [COUNTESS_MOURNHOLD   ] = { "XXX" }
+  [COUNTESS_WINDHELM    ] = { "windhelm"    , "cosmetics" }
+, [COUNTESS_RIFTEN      ] = { "riften"      , "drinkware" }
+, [COUNTESS_DAVONS_WATCH] = { "davon's"     , "games"     }
+, [COUNTESS_STORMHOLD   ] = { "stormhold"   , "writings"  }
+, [COUNTESS_MOURNHOLD   ] = { "mournhold"   , "oddities"  }
+}
+CROW_QUEST_NAMES = {
+  [CROW_LEISURE  ] = "A Matter of Leisure"
+, [CROW_RESPECT  ] = "A Matter of Respect"
+, [CROW_TRIBUTES ] = "A Matter of Tributes"
+, [CROW_GLITTER  ] = "Glitter and Gleam"
+, [CROW_NIBBLES  ] = "Nibbles and Bits"
+, [CROW_MORSELS  ] = "Morsels and Pecks"
+
 }
 function ZZCrowAndCountess.ScanQuest(quest_index)
     local qinfo = { GetJournalQuestInfo(quest_index) }
@@ -114,38 +127,32 @@ function ZZCrowAndCountess.ScanQuest(quest_index)
     -- qinfo[1] quest name
     -- qinfo[2] background text
     -- qinfo[3] active step text
-    d("name: "..tostring(qinfo[1]))
-    d("bg text: "..tostring(qinfo[2]))
-    d("active step: "..tostring(qinfo[3]))
+    -- d("name: "..tostring(qinfo[1]))
+    -- d("bg text: "..tostring(qinfo[2]))
+    -- d("active step: "..tostring(qinfo[3]))
 
     local quest_name = qinfo[1]
     if (quest_name == "The Covetous Countess") then
         local all_text_list = ZZCrowAndCountess.AllQuestText(quest_index)
         local all_text = table.concat(all_text_list, "\n"):lower()
-        d("all_text:"..all_text)
+        -- d("all_text:"..all_text)
         for countess, re_list in pairs(COUNTESS_BGTEXT) do
             for _,re in ipairs(re_list) do
                 if string.match(all_text, re:lower()) then
-                    d("current countess:"..countess)
+                    -- d("current countess:"..countess)
                     r.countess = countess
-                    return r
-                else
-                    d("re nomatch: "..re)
                 end
             end
         end
-    else
-        d("Quest name not covetous:'"..tostring(quest_name).."'")
     end
-
+    for crow_quest, crow_quest_name in pairs(CROW_QUEST_NAMES) do
+        if quest_name == crow_quest_name then
+            -- d("current crow:"..crow_quest)
+            r.crow = crow_quest
+        end
+    end
     return r
 end
-
-            -- -- if match...
-            -- -- ### FAKEY CODE
-            -- ZZCrowAndCountess.curr_quest_crow     = CROW_TRIBUTES
-            -- ZZCrowAndCountess.curr_quest_countess = COUNTESS_RIFTEN
-
 
 function ZZCrowAndCountess.AllQuestText(quest_index)
     local all_text = {}
@@ -254,19 +261,17 @@ function ZZCrowAndCountess.ItemLinkToCrowAndCountess(item_link)
 end
 
 function ZZCrowAndCountess.IsCurrent(crow_or_countess_list)
-    d("curr crow    : "..tostring(ZZCrowAndCountess.curr_quest_crow))
-    d("curr countess: "..tostring(ZZCrowAndCountess.curr_quest_countess))
+    -- d("curr crow    : "..tostring(ZZCrowAndCountess.curr_quest_crow))
+    -- d("curr countess: "..tostring(ZZCrowAndCountess.curr_quest_countess))
     if not crow_or_countess_list then
-        d("no")
+        -- d("no")
         return false
     end
     for _,c in ipairs(crow_or_countess_list) do
         if    c == ZZCrowAndCountess.curr_quest_crow
            or c == ZZCrowAndCountess.curr_quest_countess then
-           d("curr true: "..tostring(c))
+           -- d("curr true: "..tostring(c))
            return true
-       else
-            d("curr false: "..tostring(c))
        end
    end
    return false
@@ -278,6 +283,7 @@ local COLOR_UNINTERESTING = "|c999999"
 
 function ZZCrowAndCountess.TooltipInsertOurText(control, item_link)
     local r = ZZCrowAndCountess.ItemLinkToCrowAndCountess(item_link)
+    local lines = {}
 
     if 0 < #r.crow_list then
         local color = COLOR_NEED_SOMEDAY
@@ -285,7 +291,7 @@ function ZZCrowAndCountess.TooltipInsertOurText(control, item_link)
             color = COLOR_NEED_CURRENT
         end
         local s = color.."Crow: "..table.concat(r.crow_list, ", ").."|r"
-        control:AddLine(s)
+        table.insert(lines, s)
     end
     if 0 < #r.countess_list then
         local color = COLOR_NEED_SOMEDAY
@@ -293,11 +299,14 @@ function ZZCrowAndCountess.TooltipInsertOurText(control, item_link)
             color = COLOR_NEED_CURRENT
         end
         local s = color.."Countess: "..table.concat(r.countess_list, ", ").."|r"
-        control:AddLine(s)
+        table.insert(lines, s)
     end
     local is_treasure = ZZCrowAndCountess.IsTreasure(item_link)
     if is_treasure and 0 == #r.crow_list and 0 == #r.countess_list then
-        control:AddLine(COLOR_UNINTERESTING.."not needed for crow or countess|r")
+        table.insert(lines, COLOR_UNINTERESTING.."not needed for crow or countess|r")
+    end
+    if 0 < #lines then
+        control:AddLine(table.concat(lines, "\n"))
     end
 end
 
