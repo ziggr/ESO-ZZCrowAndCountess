@@ -4,12 +4,12 @@ ZZCrowAndCountess.version               = "3.3.1"
 ZZCrowAndCountess.curr_quest_crow       = nil
 ZZCrowAndCountess.curr_quest_countess   = nil
 
-local CROW_TRIBUTES = "Tributes" -- Cosmetics, Grooming Items
-local CROW_RESPECT  = "Respect"  -- Dishes and Cookware?, Drinkware, Utensils
-local CROW_LEISURE  = "Leisure"  -- Games, Toys. Dolls?
-local CROW_GLITTER  = "Glitter"  -- ornate armor
-local CROW_MORSELS  = "Morsels"  -- Elemental Essence, Supple Root, Ectoplasm
-local CROW_NIBBLES  = "Nibbles"  -- Carapace, Foul Hide, Daedra Husk
+local CROW_TRIBUTES = "Tributes" -- 1 Ct Cosmetics, Grooming Items
+local CROW_RESPECT  = "Respect"  -- 1 Cr Dishes and Cookware?, Drinkware, Utensils
+local CROW_LEISURE  = "Leisure"  -- 1 Cl Games, Toys. Dolls?
+local CROW_GLITTER  = "Glitter"  -- 1  ornate armor
+local CROW_MORSELS  = "Morsels"  -- 1  Elemental Essence, Supple Root, Ectoplasm
+local CROW_NIBBLES  = "Nibbles"  -- 1  Carapace, Foul Hide, Daedra Husk
 local COUNTESS_WINDHELM     = "Windhelm"      -- 12
 local COUNTESS_RIFTEN       = "Riften"        -- 1234567
 local COUNTESS_DAVONS_WATCH = "Davon's Watch" -- 1
@@ -19,35 +19,35 @@ local COUNTESS_MOURNHOLD    = "Mournhold"     -- 1
                     -- All "nil" here are confirmed to NOT be useful for Countess.
                     -- Crow requires more testing                           vv
 local TAG_WANTED = {                                                     -- vv
-  ["Artwork"                ] = { nil          , nil                   } -- nil
-, ["Cosmetics"              ] = { CROW_TRIBUTES, COUNTESS_WINDHELM     } -- tributes
-, ["Devices"                ] = { nil          , nil                   } -- nil
-, ["Dishes and Cookware"    ] = { CROW_RESPECT , COUNTESS_RIFTEN       } -- respect, riften
-, ["Dolls"                  ] = { nil          , COUNTESS_DAVONS_WATCH }
-, ["Drinkware"              ] = { CROW_RESPECT , COUNTESS_RIFTEN       } -- respect, riften
-, ["Dry Goods"              ] = { nil          , COUNTESS_WINDHELM     } -- windhelm
-, ["Fishing Supplies"       ] = { nil          , nil                   } -- nil
-, ["Furnishings"            ] = { nil          , nil                   } -- nil
-, ["Games"                  ] = { CROW_LEISURE , COUNTESS_DAVONS_WATCH } -- leisure, davon's
-, ["Grooming Items"         ] = { CROW_TRIBUTES, nil                   } -- tributes
-, ["Lights"                 ] = { nil          , nil                   } -- nil
+  ["Artwork"                ] = { nil          , nil                   } --    nil
+, ["Cosmetics"              ] = { CROW_TRIBUTES, COUNTESS_WINDHELM     } --        tributes
+, ["Devices"                ] = { nil          , nil                   } --    nil
+, ["Dishes and Cookware"    ] = { CROW_RESPECT , COUNTESS_RIFTEN       } --        respect, riften
+, ["Dolls"                  ] = { CROW_LEISURE , COUNTESS_DAVONS_WATCH } --        leisure, davon's
+, ["Drinkware"              ] = { CROW_RESPECT , COUNTESS_RIFTEN       } --        respect, riften
+, ["Dry Goods"              ] = { nil          , COUNTESS_WINDHELM     } --        windhelm
+, ["Fishing Supplies"       ] = { nil          , nil                   } --    nil
+, ["Furnishings"            ] = { nil          , nil                   } --    nil
+, ["Games"                  ] = { CROW_LEISURE , COUNTESS_DAVONS_WATCH } --        leisure, davon's
+, ["Grooming Items"         ] = { CROW_TRIBUTES, nil                   } --        tributes
+, ["Lights"                 ] = { nil          , nil                   } -- Ctr nil
 , ["Linens"                 ] = { nil          , COUNTESS_WINDHELM     }
-, ["Magic Curiosities"      ] = { nil          , nil                   } -- nil
-, ["Maps"                   ] = { nil          , COUNTESS_STORMHOLD    } -- stormhold
-, ["Medical Supplies"       ] = { nil          , nil                   } -- nil
-, ["Musical Instruments"    ] = { nil          , nil                   } -- nil
-, ["Oddities"               ] = { nil          , COUNTESS_MOURNHOLD    } -- mournhold
-, ["Ritual Objects"         ] = { nil          , COUNTESS_MOURNHOLD    } -- mournhold
-, ["Scrivener Supplies"     ] = { nil          , COUNTESS_STORMHOLD    } -- stormhold
-, ["Smithing Equipment"     ] = { nil          , nil                   } -- nil
-, ["Statues"                ] = { nil          , COUNTESS_DAVONS_WATCH } -- davon's
-, ["Tools"                  ] = { nil          , nil                   } -- nil
+, ["Magic Curiosities"      ] = { nil          , nil                   } -- Ctr nil
+, ["Maps"                   ] = { nil          , COUNTESS_STORMHOLD    } --        stormhold
+, ["Medical Supplies"       ] = { nil          , nil                   } -- Ctr nil
+, ["Musical Instruments"    ] = { nil          , nil                   } --    nil
+, ["Oddities"               ] = { nil          , COUNTESS_MOURNHOLD    } --         mournhold
+, ["Ritual Objects"         ] = { nil          , COUNTESS_MOURNHOLD    } --         mournhold
+, ["Scrivener Supplies"     ] = { nil          , COUNTESS_STORMHOLD    } --         stormhold
+, ["Smithing Equipment"     ] = { nil          , nil                   } -- Ctr nil
+, ["Statues"                ] = { nil          , COUNTESS_DAVONS_WATCH } --         davon's
+, ["Tools"                  ] = { nil          , nil                   } -- Ctr nil
 , ["Toys"                   ] = { CROW_LEISURE , nil                   }
-, ["Trifles and Ornaments"  ] = { nil          , nil                   } -- nil
-, ["Utensils"               ] = { CROW_RESPECT , COUNTESS_RIFTEN       } -- respect, riften
-, ["Wall Décor"             ] = { nil          , nil                   } -- nil
-, ["Wardrobe Accessories"   ] = { nil          , COUNTESS_WINDHELM     } -- windhelm
-, ["Writings"               ] = { nil          , COUNTESS_STORMHOLD    } -- stormhold
+, ["Trifles and Ornaments"  ] = { nil          , nil                   } --    nil
+, ["Utensils"               ] = { CROW_RESPECT , COUNTESS_RIFTEN       } --         respect, riften
+, ["Wall Décor"             ] = { nil          , nil                   } --    nil
+, ["Wardrobe Accessories"   ] = { nil          , COUNTESS_WINDHELM     } --         windhelm
+, ["Writings"               ] = { nil          , COUNTESS_STORMHOLD    } --         stormhold
 }
 local ITEM_ID_WANTED = {
   [54385] = CROW_MORSELS -- Elemental Essence
@@ -62,8 +62,8 @@ local ITEM_ID_WANTED = {
 -- Look for crow and countess quests
 function ZZCrowAndCountess.ScanQuestJournal()
                         -- Start blank unless we see a crow or countess quest.
-    local old = { countess == ZZCrowAndCountess.curr_quest_countess
-                , crow     == ZZCrowAndCountess.curr_quest_crow
+    local old = { countess = ZZCrowAndCountess.curr_quest_countess
+                , crow     = ZZCrowAndCountess.curr_quest_crow
                 }
     ZZCrowAndCountess.curr_quest_countess = nil
     ZZCrowAndCountess.curr_quest_crow     = nil
@@ -80,10 +80,12 @@ function ZZCrowAndCountess.ScanQuestJournal()
         end
     end
     if ZZCrowAndCountess.curr_quest_countess ~= old.countess then
-        d("ZZCrowAndCountess countess: "..tostring(ZZCrowAndCountess.curr_quest_countess))
+        d("ZZCrowAndCountess countess: "..tostring(ZZCrowAndCountess.curr_quest_countess)
+            .." (was "..tostring(old.countess)..")")
     end
     if ZZCrowAndCountess.curr_quest_crow ~= old.crow then
-        d("ZZCrowAndCountess crow: "..tostring(ZZCrowAndCountess.curr_quest_crow))
+        d("ZZCrowAndCountess crow: "..tostring(ZZCrowAndCountess.curr_quest_crow)
+            .." (was "..tostring(old.crow)..")")
     end
 end
 
@@ -307,9 +309,8 @@ function ZZCrowAndCountess.OnAddOnLoaded(event, addonName)
     if not ZZCrowAndCountess.version then return end
     ZZCrowAndCountess.TooltipInterceptInstall()
 
-    local event_id_list = { EVENT_QUEST_ADDED       -- 0 needs acquire -> 1 or 2
-                          , EVENT_CRAFT_COMPLETED   -- 1 needs craft   -> 2
-                          , EVENT_QUEST_COMPLETE    -- 2 needs turn in -> 3
+    local event_id_list = { EVENT_QUEST_ADDED
+                          , EVENT_QUEST_COMPLETE
                           }
     for _, event_id in ipairs(event_id_list) do
         EVENT_MANAGER:RegisterForEvent( ZZCrowAndCountess.name
