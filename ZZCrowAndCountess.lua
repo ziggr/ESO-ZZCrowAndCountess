@@ -3,6 +3,8 @@ ZZCrowAndCountess.name                  = "ZZCrowAndCountess"
 ZZCrowAndCountess.version               = "3.3.1"
 ZZCrowAndCountess.curr_quest_crow       = nil
 ZZCrowAndCountess.curr_quest_countess   = nil
+ZZCrowAndCountess.quests_scanned        = false
+
 
 local CROW_TRIBUTES = "Tributes" -- 1 Ct Cosmetics, Grooming Items
 local CROW_RESPECT  = "Respect"  -- 1 Cr Dishes and Cookware?, Drinkware, Utensils
@@ -60,25 +62,30 @@ local ITEM_ID_WANTED = {
 
 -- Quest Scan ----------------------------------------------------------------
 -- Look for crow and countess quests
+
+function ZZCrowAndCountess.ScanQuestJournalIf()
+    if not ZZCrowAndCountess.quests_scanned then
+        ZZCrowAndCountess.ScanQuestJournal()
+        ZZCrowAndCountess.quests_scanned = true
+    else
+        d("ZZCrowAndCountess: skipping quest journal scan. Already done once.")
+    end
+end
+
 function ZZCrowAndCountess.ScanQuestJournal()
+    -- @DEPRECATED: use OnQuestAdded()/OnQuestCompleted() events
+    -- for more precise O(1 quest) handling instead of an O(n quests)
+    -- scan every time we touch a quest.
+    d("ZZCrowAndCountess: scanning quest journal...")
+
                         -- Start blank unless we see a crow or countess quest.
     local old = { countess = ZZCrowAndCountess.curr_quest_countess
                 , crow     = ZZCrowAndCountess.curr_quest_crow
                 }
-    ZZCrowAndCountess.curr_quest_countess = nil
-    ZZCrowAndCountess.curr_quest_crow     = nil
-
-    local crow     = nil -- CROW_TRIBUTES
-    local countess = nil -- COUNTESS_RIFTEN
-    for quest_index = 1, MAX_JOURNAL_QUESTS do
-        local r = ZZCrowAndCountess.ScanQuest(quest_index)
-        if r and r.countess then
-            ZZCrowAndCountess.curr_quest_countess = r.countess
-        end
-        if r and r.crow then
-            ZZCrowAndCountess.curr_quest_crow = r.crow
-        end
-    end
+    local found = ZZCrowAndCountess.FindOpenCnCQuests()
+    d(found)
+    ZZCrowAndCountess.curr_quest_countess = found.countess.quest_type
+    ZZCrowAndCountess.curr_quest_crow     = found.crow.quest_type
     if ZZCrowAndCountess.curr_quest_countess ~= old.countess then
         d("ZZCrowAndCountess countess: "..tostring(ZZCrowAndCountess.curr_quest_countess)
             .." (was "..tostring(old.countess)..")")
@@ -89,14 +96,32 @@ function ZZCrowAndCountess.ScanQuestJournal()
     end
 end
 
-COUNTESS_BGTEXT = {
+function ZZCrowAndCountess.FindOpenCnCQuests()
+    local found = { countess = { quest_index = nil, quest_type = nil }
+                  , crow     = { quest_index = nil, quest_type = nil }
+                  }
+    for quest_index = 1, MAX_JOURNAL_QUESTS do
+        local r = ZZCrowAndCountess.ScanQuest(quest_index)
+        if r and r.countess then
+            found.countess.quest_index = quest_index
+            found.countess.quest_type  = r.countess
+        elseif r and r.crow then
+            found.crow.quest_index = quest_index
+            found.crow.quest_type  = r.crow
+        end
+    end
+    return found
+end
+
+
+local COUNTESS_BGTEXT = {
   [COUNTESS_WINDHELM    ] = { "windhelm"    , "cosmetics" }
 , [COUNTESS_RIFTEN      ] = { "riften"      , "drinkware" }
 , [COUNTESS_DAVONS_WATCH] = { "davon's"     , "games"     }
 , [COUNTESS_STORMHOLD   ] = { "stormhold"   , "writings"  }
 , [COUNTESS_MOURNHOLD   ] = { "mournhold"   , "oddities"  }
 }
-CROW_QUEST_NAMES = {
+local CROW_QUEST_NAMES = {
   [CROW_LEISURE  ] = "A Matter of Leisure"
 , [CROW_RESPECT  ] = "A Matter of Respect"
 , [CROW_TRIBUTES ] = "A Matter of Tributes"
@@ -105,6 +130,23 @@ CROW_QUEST_NAMES = {
 , [CROW_MORSELS  ] = "Morsels and Pecks"
 
 }
+local COUNTESS_QUEST_NAME = "The Covetous Countess"
+
+
+local function FindQuestType(quest_name)
+    -- return "crow" or "countess" or nil
+    if COUNTESS_QUEST_NAME == quest_name then
+        return "countess"
+    end
+
+    for k,v in pairs(CROW_QUEST_NAMES) do
+        if v == quest_name then
+            return "crow"
+        end
+    end
+    return nil
+end
+
 function ZZCrowAndCountess.ScanQuest(quest_index)
     local qinfo = { GetJournalQuestInfo(quest_index) }
     local r     = { crow = nil, countess = nil }
@@ -113,7 +155,7 @@ function ZZCrowAndCountess.ScanQuest(quest_index)
                         -- qinfo[2] background text
                         -- qinfo[3] active step text
     local quest_name = qinfo[1]
-    if (quest_name == "The Covetous Countess") then
+    if (quest_name == COUNTESS_QUEST_NAME) then
         local all_text_list = ZZCrowAndCountess.AllQuestText(quest_index)
         local all_text = table.concat(all_text_list, "\n"):lower()
         for countess, re_list in pairs(COUNTESS_BGTEXT) do
@@ -302,6 +344,160 @@ function ZZCrowAndCountess.TooltipInsertOurText(control, item_link)
     end
 end
 
+-- How many of whatever do we still need to collect or steal?
+function ZZCrowAndCountess.GetCountessNeedCt(quest_index)
+    local jqi = { GetJournalQuestInfo(quest_index) }
+    if jqi[6] then return 0 end -- is_completed   not sure if this ever goes true
+    local step_ct = GetJournalQuestNumSteps(quest_index)
+    for step_index = 1, step_ct do
+        local sinfo = { GetJournalQuestStepInfo(quest_index, step_index) }
+        -- 1 stepText "The contract requests that I steal drinkware, utensils, and dishes, launder those items to remove all traces of the original owners, and deliver them to the client, but any clean goods should do."
+        -- 2 visibility nil
+        -- 3 stepType 1
+        -- 4 trackerOverrideText ""
+        -- 5 numConditions 1
+        local condition_ct = sinfo[5]
+        for condition_index = 1, condition_ct do
+            local cinfo = { GetJournalQuestConditionInfo(quest_index
+                                        , step_index, condition_index) }
+            -- 1 conditionText  "Collect "Clean" Drinkware, Utensils, and Dishes: 0/3
+            -- 2 current 0
+            -- 3 number 3
+            -- 4 isFailCondition false
+            -- 5 isComplete false
+            -- 6 isCreditShared false
+            -- 7 isVisible true
+            if string.find(cinfo[1], "Collect") or string.find(cinfo[1], "Steal") then
+                local have_ct     = cinfo[2]
+                local required_ct = cinfo[3]
+                if required_ct <= have_ct then return 0 end
+                return required_ct - have_ct
+            end
+        end
+    end
+    return 0
+end
+
+-- Bank Fetch ----------------------------------------------------------------
+
+function ZZCrowAndCountess.OnOpenBank()
+                        -- Waste as few CPU cycles as possible if we don't
+                        -- have a current crow or countess quest. Don't
+                        -- make my FPS stutter every time I talk to Tythis.
+    ZZCrowAndCountess.ScanQuestJournalIf()
+    if not (   ZZCrowAndCountess.curr_quest_crow
+            or ZZCrowAndCountess.curr_quest_countess) then
+        return
+    end
+
+                        -- O(n) scan quest journal
+                        -- Find open crow and countess quests. We'll need
+                        -- the quest journal_index so that we can find
+                        -- steps and conditions and such.
+    local found = ZZCrowAndCountess.FindOpenCnCQuests()
+    d("ZZCrowAndCountess: quest_index crow:"..tostring(found.crow.quest_index)
+        .. " countess:"..tostring(found.countess.quest_index))
+
+    local countess_need_ct = ZZCrowAndCountess.GetCountessNeedCt(quest_index)
+    d(string.format("ZZCrowAndCountess: countess needs %d more items.",countess_need_ct))
+
+                        -- O(n) bank scan
+    local candidates = {}
+    for _,bag_id in ipairs({BAG_BANK, BAG_SUBSCRIBER_BANK}) do
+        local slot_ct = GetBagSize(bag_id)
+        for slot_id = 1,slot_ct do
+            local item_link = GetItemLink(bag_id, slot_id, LINK_STYLE_DEFAULT)
+
+                        -- Countess
+            local r = ZZCrowAndCountess.ItemLinkToCrowAndCountess(item_link)
+            for _,c in ipairs(r.countess_list) do
+                if c == ZZCrowAndCountess.curr_quest_countess then
+                        -- Possible winning slot.
+                    ci = { ['bag_id']  = bag_id
+                         , ['slot_id'] = slot_id
+                         , ['ct']      = GetSlotStackSize(bag_id, slot_id)
+                         }
+d("Found: "..tostring(ci.ct).." "..GetItemName(bag_id, slot_id))
+                    table.insert(candidates, ci)
+                end
+            end
+        end
+    end
+
+                        -- Pull winners, consuming smallest stacks first
+                        -- to get us closer to freeing up a bank slot.
+    table.sort(candidates, function(a,b) return a.ct < b.ct end)
+    local remaining_need_ct = countess_need_ct
+    for _,ci in ipairs(candidates) do
+        local move_ct   = math.min(ci.ct, remaining_need_ct)
+        ZZCrowAndCountess.WithdrawFromBank(ci.bag_id, ci.slot_id, move_ct)
+        remaining_need_ct = remaining_need_ct - move_ct
+        if remaining_need_ct <= 0 then
+            break
+        end
+    end
+end
+
+function ZZCrowAndCountess.WithdrawFromBank(bag_id, slot_id, ct)
+    local item_link        = GetItemLink(bag_id, slot_id)
+    local backpack_slot_id = FindFirstEmptySlotInBag(BAG_BACKPACK)
+d("w/d bag_id:"..tostring(bag_id).." slot_id:"..tostring(slot_id))
+    if IsProtectedFunction("RequestMoveItem") then
+        CallSecureProtected( "RequestMoveItem"
+                           , bag_id
+                           , slot_id
+                           , BAG_BACKPACK
+                           , backpack_slot_id
+                           , ct
+                           )
+    else
+        RequestMoveItem( bag_id
+                       , slot_id
+                       , BAG_BACKPACK
+                       , backpack_slot_id
+                       , ct
+                       )
+    end
+    d("ZZCrowAndCountess: fetched from bank "..tostring(ct).."x "..item_link)
+end
+
+
+-- Quest added/completed -----------------------------------------------------
+
+function ZZCrowAndCountess.OnQuestAdded(journal_index, quest_name, objective_name)
+    d("ZZCnC.OnQuestAdded() quest_name:"..tostring(quest_name)
+      .." objective_name:"..tostring(objective_name))
+
+    local quest_type = FindQuestType(quest_name)
+    if quest_type == "countess" then
+        local r = ZZCrowAndCountess.ScanQuest(journal_index)
+        ZZCrowAndCountess.curr_quest_countess = r.countess
+        d("ZZCrowAndCountess: countess "..tostring(ZZCrowAndCountess.curr_quest_countess))
+    elseif quest_type == "crow" then
+        local r = ZZCrowAndCountess.ScanQuest(journal_index)
+        ZZCrowAndCountess.curr_quest_crow = r.crow
+        d("ZZCrowAndCountess: crow "..tostring(ZZCrowAndCountess.curr_quest_crow))
+    end
+end
+
+function ZZCrowAndCountess.OnQuestComplete( quest_name
+                                          , level
+                                          , previous_experience
+                                          , current_experience
+                                          , champion_points
+                                          , quest_type
+                                          , instance_display_type )
+    local quest_type = FindQuestType(quest_name)
+    if quest_type == "countess" then
+        ZZCrowAndCountess.curr_quest_countess = nil
+        d("ZZCrowAndCountess: countess "..tostring(ZZCrowAndCountess.curr_quest_countess))
+    elseif quest_type == "crow" then
+        ZZCrowAndCountess.curr_quest_crow = nil
+        d("ZZCrowAndCountess: crow "..tostring(ZZCrowAndCountess.curr_quest_crow))
+    end
+end
+
+
 -- Init ----------------------------------------------------------------------
 
 function ZZCrowAndCountess.OnAddOnLoaded(event, addonName)
@@ -309,17 +505,18 @@ function ZZCrowAndCountess.OnAddOnLoaded(event, addonName)
     if not ZZCrowAndCountess.version then return end
     ZZCrowAndCountess.TooltipInterceptInstall()
 
-    local event_id_list = { EVENT_QUEST_ADDED
-                          , EVENT_QUEST_COMPLETE
-                          }
-    for _, event_id in ipairs(event_id_list) do
-        EVENT_MANAGER:RegisterForEvent( ZZCrowAndCountess.name
-                                      , event_id
-                                      , function()
-                                            ZZCrowAndCountess.ScanQuestJournal()
-                                        end
-                                      )
-    end
+    EVENT_MANAGER:RegisterForEvent( ZZCrowAndCountess.name
+                                  , EVENT_QUEST_ADDED
+                                  , ZZCrowAndCountess.OnQuestAdded
+                                  )
+    EVENT_MANAGER:RegisterForEvent( ZZCrowAndCountess.name
+                                  , EVENT_QUEST_COMPLETE
+                                  , ZZCrowAndCountess.OnQuestComplete
+                                  )
+    EVENT_MANAGER:RegisterForEvent( ZZCrowAndCountess.name
+                                  , EVENT_OPEN_BANK
+                                  , ZZCrowAndCountess.OnOpenBank
+                                  )
     ZZCrowAndCountess.ScanQuestJournal()
 end
 
@@ -329,5 +526,6 @@ EVENT_MANAGER:RegisterForEvent( ZZCrowAndCountess.name
                               , EVENT_ADD_ON_LOADED
                               , ZZCrowAndCountess.OnAddOnLoaded
                               )
+
 
 SLASH_COMMANDS["/zzcrow"] = ZZCrowAndCountess.ScanQuestJournal
