@@ -60,6 +60,9 @@ local ITEM_ID_WANTED = {
 , [54383] = CROW_NIBBLES -- Daedra Husk
 }
 
+local function error(msg)
+    d("|cff3333ZZCrowAndCountess error: "..msg)
+end
 -- Quest Scan ----------------------------------------------------------------
 -- Look for crow and countess quests
 
@@ -73,7 +76,8 @@ function ZZCrowAndCountess.ScanQuestJournalIf()
 end
 
 function ZZCrowAndCountess.ScanQuestJournal()
-    -- @DEPRECATED: use OnQuestAdded()/OnQuestCompleted() events
+    -- AVOID UNNECESSARY O(n quests) SCANS:
+    -- Prefer OnQuestAdded()/OnQuestCompleted() events
     -- for more precise O(1 quest) handling instead of an O(n quests)
     -- scan every time we touch a quest.
     d("ZZCrowAndCountess: scanning quest journal...")
@@ -398,11 +402,65 @@ function ZZCrowAndCountess.OnOpenBank()
     d("ZZCrowAndCountess: quest_index crow:"..tostring(found.crow.quest_index)
         .. " countess:"..tostring(found.countess.quest_index))
 
-    local countess_need_ct = ZZCrowAndCountess.GetCountessNeedCt(quest_index)
-    d(string.format("ZZCrowAndCountess: countess needs %d more items.",countess_need_ct))
+    zo_callLater(function() ZZCrowAndCountess.BankWithdrawal(found) end, 100)
+end
 
-                        -- O(n) bank scan
-    local candidates = {}
+function ZZCrowAndCountess.BankWithdrawal(open_quests)
+                        -- Async callback chain to calculate and withdraw
+                        -- one stack of items from the bank.
+    local need_ct = ZZCrowAndCountess.GetCountessNeedCt(
+                                    open_quests.countess.quest_index)
+    d(string.format("ZZCrowAndCountess: countess needs %d more items.",need_ct))
+    if 0 < need_ct then
+        local c = ZZCrowAndCountess.FindOneBankStackCountess(
+                                           open_quests.countess.quest_type
+                                         , open_quests.countess.quest_index )
+        if c and 0 < c.ct then
+            local move_ct   = math.min(c.ct, need_ct)
+            local is_moved  = ZZCrowAndCountess.WithdrawFromBank(
+                                          c.bag_id
+                                        , c.slot_id
+                                        , move_ct )
+            if (not is_moved) or (move_ct <= 0) then
+                error(" could not move "..tostring(move_ct).." "..tostring(c.item_link)
+                    .. " from bag:"..tostring(c.bag_id).." slot:"..tostring(c.slot_id))
+                return
+            end
+            if need_ct <= move_ct then
+                d("ZZCrowAndCountess: done withdrawing.")
+                return
+            end
+                        -- Still need more. Loop back and try some more
+            zo_callLater(function() ZZCrowAndCountess.BankWithdrawal(open_quests) end, 100)
+            return
+        else
+                        -- Countess needs stuff, but nothing found in bank,
+                        -- so give up on countess and fall through to crow.
+            d("ZZCrowAndCountess: countess needs:"..tostring(need_ct)
+               .." found:"..tostring(c.ct))
+        end
+    end
+
+    d("ZZCrowAndCountess: nothing to do for countess, checking crow... (someday)")
+
+                        -- Nothing to do for countess? Check crow work.
+                        -- ###
+end
+
+local function MinBankSlotCandidate(a,b)
+    if a and a.ct <= b.ct then
+        return a
+    else
+        return b
+    end
+end
+
+function ZZCrowAndCountess.FindOneBankStackCountess(
+                  countess_quest_type
+                , countess_quest_index)
+                        -- O(n) bank scan to return the smallest bank stack
+                        -- that satisfies the given countess quest.
+    local min_candidate = nil
     for _,bag_id in ipairs({BAG_BANK, BAG_SUBSCRIBER_BANK}) do
         local slot_ct = GetBagSize(bag_id)
         for slot_id = 1,slot_ct do
@@ -411,37 +469,38 @@ function ZZCrowAndCountess.OnOpenBank()
                         -- Countess
             local r = ZZCrowAndCountess.ItemLinkToCrowAndCountess(item_link)
             for _,c in ipairs(r.countess_list) do
-                if c == ZZCrowAndCountess.curr_quest_countess then
+                if c == countess_quest_type then
                         -- Possible winning slot.
-                    ci = { ['bag_id']  = bag_id
-                         , ['slot_id'] = slot_id
-                         , ['ct']      = GetSlotStackSize(bag_id, slot_id)
-                         }
-d("Found: "..tostring(ci.ct).." "..GetItemName(bag_id, slot_id))
-                    table.insert(candidates, ci)
+                    local ci = { ['bag_id']  = bag_id
+                               , ['slot_id'] = slot_id
+                               , ['ct']      = GetSlotStackSize(bag_id, slot_id)
+                               , ['item_link'] = GetItemLink(bag_id, slot_id)
+                               }
+                    min_candidate = MinBankSlotCandidate(min_candidate, ci)
+-- d("Found: bag_id:"..tostring(bag_id)
+--         .." slot_id:"..tostring(slot_id)
+--         .." ct:"..tostring(ci.ct)
+--         .." "..GetItemName(bag_id, slot_id)
+--         .."    min:"..min_candidate.item_link)
                 end
             end
         end
     end
-
-                        -- Pull winners, consuming smallest stacks first
-                        -- to get us closer to freeing up a bank slot.
-    table.sort(candidates, function(a,b) return a.ct < b.ct end)
-    local remaining_need_ct = countess_need_ct
-    for _,ci in ipairs(candidates) do
-        local move_ct   = math.min(ci.ct, remaining_need_ct)
-        ZZCrowAndCountess.WithdrawFromBank(ci.bag_id, ci.slot_id, move_ct)
-        remaining_need_ct = remaining_need_ct - move_ct
-        if remaining_need_ct <= 0 then
-            break
-        end
-    end
+    return min_candidate
 end
+
+-- This only works ONCE. After that, the slots move around out from under us,
+-- but from our thread, we still see the old slot_id and can't see the movement.
+-- We're gonna have to async zo_calllater() this. Ugh.
 
 function ZZCrowAndCountess.WithdrawFromBank(bag_id, slot_id, ct)
     local item_link        = GetItemLink(bag_id, slot_id)
     local backpack_slot_id = FindFirstEmptySlotInBag(BAG_BACKPACK)
-d("w/d bag_id:"..tostring(bag_id).." slot_id:"..tostring(slot_id))
+d("w/d bag_id:"..tostring(bag_id).." slot_id:"..tostring(slot_id)
+    .." ct:"..tostring(ct)
+    .." to backback_slot_id:"..tostring(backpack_slot_id))
+    if not backpack_slot_id then return false end
+
     if IsProtectedFunction("RequestMoveItem") then
         CallSecureProtected( "RequestMoveItem"
                            , bag_id
@@ -459,13 +518,14 @@ d("w/d bag_id:"..tostring(bag_id).." slot_id:"..tostring(slot_id))
                        )
     end
     d("ZZCrowAndCountess: fetched from bank "..tostring(ct).."x "..item_link)
+    return true
 end
 
 
 -- Quest added/completed -----------------------------------------------------
 
-function ZZCrowAndCountess.OnQuestAdded(journal_index, quest_name, objective_name)
-    d("ZZCnC.OnQuestAdded() quest_name:"..tostring(quest_name)
+function ZZCrowAndCountess.OnQuestAdded(what, journal_index, quest_name, objective_name)
+    d("ZZCrowAndCountess.OnQuestAdded() quest_name:"..tostring(quest_name)
       .." objective_name:"..tostring(objective_name))
 
     local quest_type = FindQuestType(quest_name)
@@ -480,13 +540,15 @@ function ZZCrowAndCountess.OnQuestAdded(journal_index, quest_name, objective_nam
     end
 end
 
-function ZZCrowAndCountess.OnQuestComplete( quest_name
+function ZZCrowAndCountess.OnQuestComplete( event
+                                          , quest_name
                                           , level
                                           , previous_experience
                                           , current_experience
                                           , champion_points
                                           , quest_type
                                           , instance_display_type )
+    -- d("ZZCrowAndCountess: quest complete quest_name:"..tostring(quest_name))
     local quest_type = FindQuestType(quest_name)
     if quest_type == "countess" then
         ZZCrowAndCountess.curr_quest_countess = nil
