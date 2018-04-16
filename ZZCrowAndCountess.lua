@@ -521,6 +521,20 @@ function ZZCrowAndCountess.CrowConditionItemId(crow_condition, bag_id, slot_id)
     return crow_condition.item_id == item_id
 end
 
+function ZZCrowAndCountess.CrowConditionOrnate(crow_condition, bag_id, slot_id)
+                        -- Item must be ornate armor
+    local item_trait = GetItemTrait(bag_id, slot_id)
+    if item_trait ~= ITEM_TRAIT_TYPE_ARMOR_ORNATE then return false end
+
+                        -- Zig further limites this to 105g/108g items.
+    local info = {GetItemInfo(bag_id, slot_id)}
+                    -- 1 icon
+                    -- 2 number stack
+                    -- 3 number sellPrice
+    return info[3] < 120
+end
+
+
 local CROW_CONDITION = {
     [CROW_TRIBUTES] = { { ["text"] = "Cosmetics and Grooming Items"
                         , ["tags"] = {"Cosmetics", "Grooming Items"}
@@ -529,6 +543,11 @@ local CROW_CONDITION = {
                       }
   , [CROW_LEISURE]  = { { ["text"] = "Toys and Games"
                         , ["tags"] = {"Dolls", "Games", "Toys"}
+                        , ["func"] = ZZCrowAndCountess.CrowConditionTags
+                        }
+                      }
+  , [CROW_RESPECT]  = { { ["text"] = "Cookware"
+                        , ["tags"] = {"Dishes and Cookware", "Drinkware", "Utensils"}
                         , ["func"] = ZZCrowAndCountess.CrowConditionTags
                         }
                       }
@@ -545,9 +564,30 @@ local CROW_CONDITION = {
                         , ["func"]    = ZZCrowAndCountess.CrowConditionItemId
                         }
                       }
+  , [CROW_MORSELS]  = { { ["text"]    = "Elemental Essence"
+                        , ["item_id"] = 54385
+                        , ["func"]    = ZZCrowAndCountess.CrowConditionItemId
+                        }
+                      , { ["text"]    = "Supple Root"
+                        , ["item_id"] = 54388
+                        , ["func"]    = ZZCrowAndCountess.CrowConditionItemId
+                        }
+                      , { ["text"]    = "Ectoplasm"
+                        , ["item_id"] = 54384
+                        , ["func"]    = ZZCrowAndCountess.CrowConditionItemId
+                        }
+                      }
+  , [CROW_GLITTER]  = { { ["text"]    = "ornate armor"
+                        , ["func"]    = ZZCrowAndCountess.CrowConditionOrnate
+                        }
+                      }
 }
 
+-- * ITEM_TRAIT_TYPE_ARMOR_ORNATE
+
+
 function ZZCrowAndCountess.GetCrowNeedList(quest_type, quest_index)
+    if not quest_type then return end
     local need_list = {}
     local step_ct   = GetJournalQuestNumSteps(quest_index)
     local cond_list = CROW_CONDITION[quest_type]
