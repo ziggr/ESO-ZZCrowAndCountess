@@ -402,12 +402,21 @@ function ZZCrowAndCountess.OnOpenBank()
     d("ZZCrowAndCountess: quest_index crow:"..tostring(found.crow.quest_index)
         .. " countess:"..tostring(found.countess.quest_index))
 
+                        -- Avoid infinite looping
+    ZZCrowAndCountess.bank_callback_limiter = 10
+
     zo_callLater(function() ZZCrowAndCountess.BankWithdrawal(found) end, 100)
 end
 
 function ZZCrowAndCountess.BankWithdrawal(open_quests)
                         -- Async callback chain to calculate and withdraw
                         -- one stack of items from the bank.
+    ZZCrowAndCountess.bank_callback_limiter = (ZZCrowAndCountess.bank_callback_limiter or 0) - 1
+    if ZZCrowAndCountess.bank_callback_limiter <= 0 then
+        error("BankWithdrawal() attempting an infinite loop. Stopping.")
+        return
+    end
+
     local need_ct = ZZCrowAndCountess.GetCountessNeedCt(
                                     open_quests.countess.quest_index)
     d(string.format("ZZCrowAndCountess: countess needs %d more items.",need_ct))
@@ -442,9 +451,108 @@ function ZZCrowAndCountess.BankWithdrawal(open_quests)
     end
 
     d("ZZCrowAndCountess: nothing to do for countess, checking crow... (someday)")
+    local need_list = ZZCrowAndCountess.GetCrowNeedList(
+                          open_quests.crow.quest_type
+                        , open_quests.crow.quest_index )
+    if not (need_list and 0 < #need_list) then
+        d("ZZCrowAndCountess: crow needs nothing.")
+        return
+    end
 
-                        -- Nothing to do for countess? Check crow work.
-                        -- ###
+    for _,ni in ipairs(need_list) do
+        local c = ZZCrowAndCountess.FindOneBankStackCrow(ni)
+        if c then
+            local move_ct = math.min(c.ct, ni.need_ct - ni.have_ct)
+            local is_moved = ZZCrowAndCountess.WithdrawFromBank(
+                                        c.bag_id
+                                      , c.slot_id
+                                      , move_ct )
+            if (not is_moved) or (move_ct <= 0) then
+                error(" could not move "..tostring(move_ct).." "..tostring(c.item_link)
+                    .. " from bag:"..tostring(c.bag_id).." slot:"..tostring(c.slot_id))
+                return
+            end
+            break
+        end
+    end
+                        -- +++ Ideally we could tell that we just withdrew
+                        --     the last stack that we needed, and not
+                        --     call back into this function again. But that
+                        --     would end up duplicating code, and I've
+                        --     duplicated enough code for one day.
+
+                        -- MAYBE still need more. Loop back and try some more.
+    zo_callLater(function() ZZCrowAndCountess.BankWithdrawal(open_quests) end, 100)
+end
+
+function ZZCrowAndCountess.CrowConditionTags(crow_condition, bag_id, slot_id)
+                        -- Item must be treasure with any of the requested tags.
+    local item_link = GetItemLink(bag_id, slot_id, LINK_STYLE_DEFAULT)
+    if not ZZCrowAndCountess.IsTreasure(item_link) then return false end
+
+                        -- Find item tags such as "Utensils" or "Dry Goods"
+    local tag_ct = GetItemLinkNumItemTags(item_link)
+    for i = 1,tag_ct do
+        local tag_desc, tag_category = GetItemLinkItemTagInfo(item_link,i)
+        if TAG_CATEGORY_TREASURE_TYPE == tag_category then
+            for _,want_tag in ipairs(crow_condition.tags) do
+                if tag_desc == want_tag then return true end
+            end
+        end
+    end
+    return false
+end
+
+local CROW_CONDITION = {
+    [CROW_TRIBUTES] = { ["text"] = "Cosmetics and Grooming Items"
+                      , ["tags"] = {"Cosmetics", "Grooming Items"}
+                      , ["func"] = ZZCrowAndCountess.CrowConditionTags
+                      }
+
+}
+
+function ZZCrowAndCountess.GetCrowNeedList(quest_type, quest_index)
+    local need_list = {}
+    local step_ct   = GetJournalQuestNumSteps(quest_index)
+    local cond      = CROW_CONDITION[quest_type]
+    if not cond then
+        error("Don't (yet!) know how to withdraw crow:"..tostring(quest_type))
+        return
+    end
+    for step_index = 1, step_ct do
+        local sinfo = { GetJournalQuestStepInfo(quest_index, step_index) }
+        -- 1 stepText "The contract requests that I steal drinkware, utensils, and dishes, launder those items to remove all traces of the original owners, and deliver them to the client, but any clean goods should do."
+        -- 2 visibility nil
+        -- 3 stepType 1
+        -- 4 trackerOverrideText ""
+        -- 5 numConditions 1
+        local condition_ct = sinfo[5]
+        for condition_index = 1, condition_ct do
+            local cinfo = { GetJournalQuestConditionInfo(quest_index
+                                        , step_index, condition_index) }
+            -- 1 conditionText  "Collect Cosmetics and Grooming Items: 0/5
+            -- 2 current 0
+            -- 3 number 5
+            -- 4 isFailCondition false
+            -- 5 isComplete false
+            -- 6 isCreditShared false
+            -- 7 isVisible true
+            if string.find(cinfo[1], cond.text)
+                and cinfo[2] < cinfo[3] then
+                local ni = { ['tags']      = cond.tags
+                           , ['item_link'] = cond.item_link
+                           , ['ornate']    = cond.ornate
+                           , ['func']      = cond.func
+                           , ['need_ct']   = cinfo[3]
+                           , ['have_ct']   = cinfo[2]
+                           }
+                table.insert(need_list, ni)
+            end
+        end
+    end
+
+
+    return need_list
 end
 
 local function MinBankSlotCandidate(a,b)
@@ -453,6 +561,34 @@ local function MinBankSlotCandidate(a,b)
     else
         return b
     end
+end
+
+function ZZCrowAndCountess.FindOneBankStackCrow(crow_condition)
+d("ZZCrowAndCountess.FindOneBankStackCrow crow_condition:")
+d(crow_condition)
+                        -- O(n) bank scan to return the smallest bank stack
+                        -- that satisfies the given countess quest.
+    local min_candidate = nil
+    for _,bag_id in ipairs({BAG_BANK, BAG_SUBSCRIBER_BANK}) do
+        local slot_ct = GetBagSize(bag_id)
+        for slot_id = 1,slot_ct do
+            if crow_condition.func(crow_condition, bag_id, slot_id) then
+                        -- Possible winning slot.
+                    local ci = { ['bag_id']  = bag_id
+                               , ['slot_id'] = slot_id
+                               , ['ct']      = GetSlotStackSize(bag_id, slot_id)
+                               , ['item_link'] = GetItemLink(bag_id, slot_id)
+                               }
+                    min_candidate = MinBankSlotCandidate(min_candidate, ci)
+d("Found: bag_id:"..tostring(bag_id)
+        .." slot_id:"..tostring(slot_id)
+        .." ct:"..tostring(ci.ct)
+        .." "..GetItemName(bag_id, slot_id)
+        .."    min:"..min_candidate.item_link)
+            end
+        end
+    end
+    return min_candidate
 end
 
 function ZZCrowAndCountess.FindOneBankStackCountess(
