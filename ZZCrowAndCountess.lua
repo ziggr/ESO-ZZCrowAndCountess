@@ -450,7 +450,7 @@ function ZZCrowAndCountess.BankWithdrawal(open_quests)
         end
     end
 
-    d("ZZCrowAndCountess: nothing to do for countess, checking crow... (someday)")
+    d("ZZCrowAndCountess: nothing to do for countess, checking crow...")
     local need_list = ZZCrowAndCountess.GetCrowNeedList(
                           open_quests.crow.quest_type
                         , open_quests.crow.quest_index )
@@ -459,9 +459,16 @@ function ZZCrowAndCountess.BankWithdrawal(open_quests)
         return
     end
 
+    local stack_found = false
     for _,ni in ipairs(need_list) do
         local c = ZZCrowAndCountess.FindOneBankStackCrow(ni)
+d("ZZCrowAndCountess found crow stack: bag_id:"..tostring(c.bag_id)
+    .." slot_id:"..c.slot_id.." ct:"..tostring(c.ct)
+    .." have_ct:"..ni.have_ct.." need_ct:"..ni.need_ct
+    .." "..c.item_link
+    )
         if c then
+            stack_found = true
             local move_ct = math.min(c.ct, ni.need_ct - ni.have_ct)
             local is_moved = ZZCrowAndCountess.WithdrawFromBank(
                                         c.bag_id
@@ -474,6 +481,10 @@ function ZZCrowAndCountess.BankWithdrawal(open_quests)
             end
             break
         end
+    end
+    if not stack_found then
+        d("ZZCrowAndCountess: nothing found for crow.")
+        return
     end
                         -- +++ Ideally we could tell that we just withdrew
                         --     the last stack that we needed, and not
@@ -508,6 +519,10 @@ local CROW_CONDITION = {
                       , ["tags"] = {"Cosmetics", "Grooming Items"}
                       , ["func"] = ZZCrowAndCountess.CrowConditionTags
                       }
+  , [CROW_LEISURE]  = { ["text"] = "Toys and Games"
+                      , ["tags"] = {"Dolls", "Games", "Toys"}
+                      , ["func"] = ZZCrowAndCountess.CrowConditionTags
+                      }
 
 }
 
@@ -538,7 +553,12 @@ function ZZCrowAndCountess.GetCrowNeedList(quest_type, quest_index)
             -- 6 isCreditShared false
             -- 7 isVisible true
             if string.find(cinfo[1], cond.text)
-                and cinfo[2] < cinfo[3] then
+                and cinfo[2] < cinfo[3]
+                and 1 < cinfo[3]        -- SURPRISE! after completing acquisition
+                                        -- there is still a no-longer-shown hint
+                                        -- "condition" with have:0 need:1.
+                                        -- Skip this pseudo-condition.
+                then
                 local ni = { ['tags']      = cond.tags
                            , ['item_link'] = cond.item_link
                            , ['ornate']    = cond.ornate
@@ -547,6 +567,9 @@ function ZZCrowAndCountess.GetCrowNeedList(quest_type, quest_index)
                            , ['have_ct']   = cinfo[2]
                            }
                 table.insert(need_list, ni)
+d("GetJournalQuestConditionInfo("..tostring(quest_index)
+    ..","..tostring(step_index)..","..tostring(condition_index).."):")
+d(cinfo)
             end
         end
     end
