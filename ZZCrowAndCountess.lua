@@ -436,8 +436,9 @@ function ZZCrowAndCountess.BankWithdrawal(open_quests)
                 return
             end
             if need_ct <= move_ct then
-                d("ZZCrowAndCountess: done withdrawing.")
-                return
+                d("ZZCrowAndCountess: countess done withdrawing. Will check crow soon...")
+            else
+                d("ZZCrowAndCountess: countess needs more. Will check soon...")
             end
                         -- Still need more. Loop back and try some more
             zo_callLater(function() ZZCrowAndCountess.BankWithdrawal(open_quests) end, 100)
@@ -446,7 +447,7 @@ function ZZCrowAndCountess.BankWithdrawal(open_quests)
                         -- Countess needs stuff, but nothing found in bank,
                         -- so give up on countess and fall through to crow.
             d("ZZCrowAndCountess: countess needs:"..tostring(need_ct)
-               .." found:"..tostring(c.ct))
+               .." found:0.  Continuing to crow.")
         end
     end
 
