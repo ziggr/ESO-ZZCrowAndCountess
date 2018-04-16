@@ -461,13 +461,13 @@ function ZZCrowAndCountess.BankWithdrawal(open_quests)
 
     local stack_found = false
     for _,ni in ipairs(need_list) do
-        local c = ZZCrowAndCountess.FindOneBankStackCrow(ni)
+        local c = ZZCrowAndCountess.FindOneBankStackCrow(ni.cond)
+        if c then
 d("ZZCrowAndCountess found crow stack: bag_id:"..tostring(c.bag_id)
     .." slot_id:"..c.slot_id.." ct:"..tostring(c.ct)
     .." have_ct:"..ni.have_ct.." need_ct:"..ni.need_ct
     .." "..c.item_link
     )
-        if c then
             stack_found = true
             local move_ct = math.min(c.ct, ni.need_ct - ni.have_ct)
             local is_moved = ZZCrowAndCountess.WithdrawFromBank(
@@ -514,23 +514,43 @@ function ZZCrowAndCountess.CrowConditionTags(crow_condition, bag_id, slot_id)
     return false
 end
 
-local CROW_CONDITION = {
-    [CROW_TRIBUTES] = { ["text"] = "Cosmetics and Grooming Items"
-                      , ["tags"] = {"Cosmetics", "Grooming Items"}
-                      , ["func"] = ZZCrowAndCountess.CrowConditionTags
-                      }
-  , [CROW_LEISURE]  = { ["text"] = "Toys and Games"
-                      , ["tags"] = {"Dolls", "Games", "Toys"}
-                      , ["func"] = ZZCrowAndCountess.CrowConditionTags
-                      }
+function ZZCrowAndCountess.CrowConditionItemId(crow_condition, bag_id, slot_id)
+                        -- Item must be treasure with any of the requested tags.
+    local item_id = GetItemId(bag_id, slot_id)
+    return crow_condition.item_id == item_id
+end
 
+local CROW_CONDITION = {
+    [CROW_TRIBUTES] = { { ["text"] = "Cosmetics and Grooming Items"
+                        , ["tags"] = {"Cosmetics", "Grooming Items"}
+                        , ["func"] = ZZCrowAndCountess.CrowConditionTags
+                        }
+                      }
+  , [CROW_LEISURE]  = { { ["text"] = "Toys and Games"
+                        , ["tags"] = {"Dolls", "Games", "Toys"}
+                        , ["func"] = ZZCrowAndCountess.CrowConditionTags
+                        }
+                      }
+  , [CROW_NIBBLES]  = { { ["text"]    = "Carapaces"
+                        , ["item_id"] = 54382
+                        , ["func"]    = ZZCrowAndCountess.CrowConditionItemId
+                        }
+                      , { ["text"]    = "Foul Hides"
+                        , ["item_id"] = 54381
+                        , ["func"]    = ZZCrowAndCountess.CrowConditionItemId
+                        }
+                      , { ["text"]    = "Daedra Husks"
+                        , ["item_id"] = 54383
+                        , ["func"]    = ZZCrowAndCountess.CrowConditionItemId
+                        }
+                      }
 }
 
 function ZZCrowAndCountess.GetCrowNeedList(quest_type, quest_index)
     local need_list = {}
     local step_ct   = GetJournalQuestNumSteps(quest_index)
-    local cond      = CROW_CONDITION[quest_type]
-    if not cond then
+    local cond_list = CROW_CONDITION[quest_type]
+    if not cond_list then
         error("Don't (yet!) know how to withdraw crow:"..tostring(quest_type))
         return
     end
@@ -552,24 +572,27 @@ function ZZCrowAndCountess.GetCrowNeedList(quest_type, quest_index)
             -- 5 isComplete false
             -- 6 isCreditShared false
             -- 7 isVisible true
-            if string.find(cinfo[1], cond.text)
-                and cinfo[2] < cinfo[3]
-                and 1 < cinfo[3]        -- SURPRISE! after completing acquisition
+            for _,cond in ipairs(cond_list) do
+                if string.find(cinfo[1], cond.text)
+                    and cinfo[2] < cinfo[3]
+                    and 1 < cinfo[3]    -- SURPRISE! after completing acquisition
                                         -- there is still a no-longer-shown hint
                                         -- "condition" with have:0 need:1.
                                         -- Skip this pseudo-condition.
-                then
-                local ni = { ['tags']      = cond.tags
-                           , ['item_link'] = cond.item_link
-                           , ['ornate']    = cond.ornate
-                           , ['func']      = cond.func
-                           , ['need_ct']   = cinfo[3]
-                           , ['have_ct']   = cinfo[2]
-                           }
-                table.insert(need_list, ni)
+                    then
+                    local ni = { ['cond']      = cond
+                               -- , ['tags']      = cond.tags
+                               -- , ['item_link'] = cond.item_link
+                               -- , ['ornate']    = cond.ornate
+                               -- , ['func']      = cond.func
+                               , ['need_ct']   = cinfo[3]
+                               , ['have_ct']   = cinfo[2]
+                               }
+                    table.insert(need_list, ni)
 d("GetJournalQuestConditionInfo("..tostring(quest_index)
     ..","..tostring(step_index)..","..tostring(condition_index).."):")
 d(cinfo)
+                end
             end
         end
     end
