@@ -577,7 +577,7 @@ local CROW_CONDITION = {
                         , ["func"]    = ZZCrowAndCountess.CrowConditionItemId
                         }
                       }
-  , [CROW_GLITTER]  = { { ["text"]    = "ornate armor"
+  , [CROW_GLITTER]  = { { ["text"]    = "Ornate Armor"
                         , ["func"]    = ZZCrowAndCountess.CrowConditionOrnate
                         }
                       }
