@@ -1,6 +1,8 @@
-## Title: ZZCrowAndCountess
-## Description: ZZCrowAndCountess version 3.3.1
+## Title: ZZCrowAndCountess 7.0.1
+## Version: 070001
 ## Author: ziggr
-## APIVersion: 100022
+## APIVersion: 100034 100035
+## Description: ZZCrowAndCountess
+## OptionalDependsOn: LibSlashCommander
 
 ZZCrowAndCountess.lua
